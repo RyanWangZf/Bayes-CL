@@ -6,8 +6,12 @@ import pdb, os
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+# print("load matplotlib")
+import matplotlib
+matplotlib.use("AGG")
 import matplotlib.pyplot as plt
-plt.style.use(["science", "ieee"])
+
+# plt.style.use(["science", "ieee"])
 
 from model import SimpleCNN
 from dataset import load_data
@@ -19,7 +23,7 @@ def train(**kwargs):
     # pre-setup
     setup_seed(opt.seed)
     opt.parse(kwargs)
-    log_dir = os.path.join(opt.ckpt_dir, "nocl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    log_dir = os.path.join(opt.result_dir, "nocl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
@@ -30,6 +34,7 @@ def train(**kwargs):
     x_tr, y_tr = img_preprocess(x_tr, y_tr, opt.use_gpu)
     x_va, y_va = img_preprocess(x_va, y_va, opt.use_gpu)
     x_te, y_te = img_preprocess(x_te, y_te, opt.use_gpu)
+    print("load data done")
 
     # load model
     model = SimpleCNN(10)
@@ -46,6 +51,7 @@ def train(**kwargs):
 
     te_acc_list = []
 
+    print("start training")
     for epoch in range(opt.num_epoch):
         total_loss = 0
         np.random.shuffle(all_tr_idx)
@@ -81,6 +87,8 @@ def train(**kwargs):
         plt.xlabel("epoch")
         plt.savefig(os.path.join(log_dir, "epoch_acc_te.png"))
         plt.close(1)
+        
+        np.save(os.path.join(log_dir, "te_acc.npy"), te_acc_list)
 
         # save ckpt
         ckpt_path = os.path.join(ckpt_dir, "model_{}.pth".format(epoch+1))

@@ -23,7 +23,6 @@ class DefaultConfig(object):
     weight_decay = 1e-4
 
     # log name
-    ckpt_dir = "./training_logs"
     print_opt = "DEF"
 
     def parse(self, kwargs):
