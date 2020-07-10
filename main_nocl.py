@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from model import SimpleCNN
 from dataset import load_data
 
-from utils import setup_seed, img_preprocess
+from utils import setup_seed, img_preprocess, impose_label_noise
 from config import opt
 
 def train(**kwargs):
@@ -30,7 +30,11 @@ def train(**kwargs):
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
-
+    
+    if opt.noise_ratio > 0:
+        print("put noise in label, ratio = ", opt.noise_ratio)
+        y_tr = impose_label_noise(y_tr, opt.noise_ratio)
+            
     x_tr, y_tr = img_preprocess(x_tr, y_tr, opt.use_gpu)
     x_va, y_va = img_preprocess(x_va, y_va, opt.use_gpu)
     x_te, y_te = img_preprocess(x_te, y_te, opt.use_gpu)

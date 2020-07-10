@@ -22,5 +22,17 @@ def img_preprocess(x, y=None, use_gpu=False):
     else:
         return x
 
+def impose_label_noise(y, noise_ratio):
+    max_y, min_y = y.max(), y.min()
+    all_idx = np.arange(len(y))
+    np.random.shuffle(all_idx)
+    
+    num_noise_sample = int(noise_ratio * len(y))
+    noise_idx = all_idx[:num_noise_sample]    
+    noise_y = np.random.randint(int(min_y), int(max_y) + 1, [num_noise_sample])
+    y[noise_idx] = noise_y
+    
+    return y
+
 
 
