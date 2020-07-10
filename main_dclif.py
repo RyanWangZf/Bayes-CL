@@ -18,6 +18,7 @@ from model import SimpleCNN
 from dataset import load_data
 
 from utils import setup_seed, img_preprocess, impose_label_noise
+from utils import ExponentialScheduler
 from config import opt
 
 def train(**kwargs):
@@ -46,6 +47,8 @@ def train(**kwargs):
     if opt.use_gpu:
         model.cuda()
 
+    model.use_gpu = opt.use_gpu
+
     # set the last linear layer's weight and bias for calculating if
     theta = [model.dense.weight, model.dense.bias]
 
@@ -56,6 +59,9 @@ def train(**kwargs):
 
     # initialize optimizer
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=opt.lr, weight_decay=opt.weight_decay)
+
+    # temperature scheduler
+    temp_scler = ExponentialScheduler(init_t=0.5, max_t=5.0)
 
     te_acc_list = []
 
@@ -83,6 +89,7 @@ def train(**kwargs):
 
                 total_loss = total_loss + loss
 
+
         else:
             # execute curriculum learning
             for idx in range(num_all_batch):
@@ -107,7 +114,6 @@ def train(**kwargs):
                 optimizer.step()
 
                 total_loss = total_loss + loss
-
 
         print("epoch: {}, loss: {}".format(epoch, total_loss.item()))
 
@@ -136,6 +142,7 @@ def train(**kwargs):
         # ---------------------------------------------------------------
 
         print("computing curriculum scores.")
+        model.eval()
 
         # ---------------------------------------------------------------
         # compute s_va, g_va, which are same for all groups of training data
@@ -152,11 +159,11 @@ def train(**kwargs):
         curriculum_list = defaultdict(list)
         curriculum_score = []
 
-        # TODO
-        # now we get curriculum randomly split, but if its possible for us to
         # split the curriculum with infinitesimal jackknife (individual influence function)
         all_tr_idx = np.arange(len(x_tr))
-        np.random.shuffle(all_tr_idx)
+        phi_indiv = compute_individual_influence(model, x_tr, y_tr, s_va)
+        all_tr_idx = rank_index_by_phi(all_tr_idx, phi_indiv)
+        # np.random.shuffle(all_tr_idx)
 
         for idx in range(num_curriculum_batch):
             batch_idx = all_tr_idx[idx*curriculum_size:(idx+1)*curriculum_size]
@@ -197,11 +204,53 @@ def train(**kwargs):
         # get temperature scaled softmax of the scores
         curriculum_score = np.array(curriculum_score)
 
-        # TODO schedule temperature scaling
-        T = 0.5
+        # schedule temperature scaling
+        T = temp_scler.step(epoch)
         curriculum_prob = compute_curriculum_prob(curriculum_score, T)
 
         print("curriculum scores computed done.")
+
+def compute_individual_influence(model, x_tr, y_tr, s_va):
+    """Compute individual influence for spliting curriculum;
+    """
+    def one_hot_transform(y, num_class=10):
+        one_hot_y = F.one_hot(y, num_classes=num_class)
+        return one_hot_y.float()
+
+    num_class = torch.unique(y_tr).shape[0]
+    y_tr_oh = one_hot_transform(y_tr, num_class)
+
+    batch_size = 1000
+    num_all_batch = int(np.ceil(len(x_tr)/batch_size))
+
+    if_list = []
+    for idx in range(num_all_batch):
+        x_batch = x_tr[batch_size*idx: batch_size*(idx+1)]
+        y_batch = y_tr_oh[batch_size*idx: batch_size*(idx+1)]
+
+        pred, x_h = model(x_batch, hidden=True)
+        diff_pred = pred - y_batch
+
+        x_h = torch.unsqueeze(x_h, 1)
+        partial_J_theta = x_h * torch.unsqueeze(diff_pred, 2)
+        partial_J_theta = partial_J_theta.view(-1, partial_J_theta.shape[1] * partial_J_theta.shape[2]).detach()
+
+        if model.use_gpu:
+            identical_mat = torch.eye(num_class).cuda()
+        else:
+            identical_mat = torch.eye(num_class)
+
+        partial_J_b = torch.mm(diff_pred, identical_mat)
+
+        predicted_loss_diff = - (torch.mm(partial_J_theta, s_va[0].view(-1,1)) + 
+            torch.mm(partial_J_b, s_va[1].view(-1,1)))
+
+        if_list.append(predicted_loss_diff.view(-1).detach().cpu().numpy())
+
+
+    pred_all_if = np.concatenate(if_list)
+
+    return pred_all_if
 
 
 def compute_group_influence(num_u, num_all, s_va, s_u_h_inv, g_u):
@@ -349,6 +398,9 @@ def compute_curriculum_prob(score, T):
     x_exp = np.exp(x/T)
     prob = x_exp / np.sum(x_exp)
     return prob
+
+def rank_index_by_phi(all_idx, phi):
+    return all_idx[np.argsort(phi)]
 
 def predict(model, x):
     model.eval()

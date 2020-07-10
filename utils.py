@@ -35,4 +35,14 @@ def impose_label_noise(y, noise_ratio):
     return y
 
 
+class ExponentialScheduler(object):
+    def __init__(self, init_t, max_t):
+        """Args:
+            init_t: initial value
+            max_t: max value at last
+        """
+        self.max_t = max_t
+        self.init_t = init_t
 
+    def step(self, t):
+        return np.minimum(self.max_t, (1.05) ** (t) * self.init_t)
