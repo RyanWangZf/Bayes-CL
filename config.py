@@ -22,6 +22,9 @@ class DefaultConfig(object):
     lr = 0.001
     weight_decay = 1e-4
 
+    # curriculum learning for DCLIF
+    curriculum_size = 1000
+
     # log name
     print_opt = "DEF"
 

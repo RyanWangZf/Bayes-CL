@@ -58,8 +58,9 @@ def train(**kwargs):
 
         model.train()
         for idx in range(num_all_batch):
-            x_batch = x_tr[idx*batch_size:(idx+1)*batch_size]
-            y_batch = y_tr[idx*batch_size:(idx+1)*batch_size]
+            batch_idx = all_tr_idx[idx*batch_size:(idx+1)*batch_size]
+            x_batch = x_tr[batch_idx]
+            y_batch = y_tr[batch_idx]
 
             pred = model(x_batch)
 
