@@ -61,7 +61,7 @@ def train(**kwargs):
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=opt.lr, weight_decay=opt.weight_decay)
 
     # temperature scheduler
-    temp_scler = ExponentialScheduler(init_t=0.5, max_t=5.0)
+    temp_scler = ExponentialScheduler(init_t=0.1, max_t=5.0)
 
     te_acc_list = []
 
@@ -207,6 +207,7 @@ def train(**kwargs):
         # schedule temperature scaling
         T = temp_scler.step(epoch)
         curriculum_prob = compute_curriculum_prob(curriculum_score, T)
+        print("curriculum prob distribution:", curriculum_prob)
 
         print("curriculum scores computed done.")
 

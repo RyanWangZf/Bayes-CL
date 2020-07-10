@@ -18,12 +18,12 @@ class SimpleCNN(nn.Module):
         super(SimpleCNN, self).__init__()
 
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=0)
-        self.bn1 = nn.BatchNorm2d(32)
+        # self.bn1 = nn.BatchNorm2d(32)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d((2,2))
 
         self.conv2 = nn.Conv2d(32,16, kernel_size=3, stride=2, padding=1)
-        self.bn2 = nn.BatchNorm2d(16)
+        # self.bn2 = nn.BatchNorm2d(16)
 
         # name: "dense.weight", "dense.bias"
         self.dense = nn.Linear(4*4*16, num_class) # 
@@ -36,12 +36,12 @@ class SimpleCNN(nn.Module):
         is_training = self.training
 
         x = self.conv1(inputs)
-        x = self.bn1(x)
+        # x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x) # ?, 32, 15, 15
 
         x = self.conv2(x)
-        x = self.bn2(x)
+        # x = self.bn2(x)
         x = self.relu(x)
         x = self.maxpool(x) # ?, 16, 4, 4
         
