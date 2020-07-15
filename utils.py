@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import pdb
+import torchvision.transforms
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -9,6 +11,8 @@ def setup_seed(seed):
 
 def img_preprocess(x, y=None, use_gpu=False):
     x = torch.Tensor(x) / 255.0
+    # x = x - 0.5 # [-0.5, 0.5]
+
     if use_gpu:
         x = x.cuda()
 
@@ -34,6 +38,13 @@ def impose_label_noise(y, noise_ratio):
     
     return y
 
+def save_model(ckpt_path, model):
+    torch.save(model.state_dict(), ckpt_path)
+    return
+
+def load_model(ckpt_path, model):
+    model.load_state_dict(torch.load(ckpt_path))
+    return
 
 class ExponentialScheduler(object):
     def __init__(self, init_t, max_t):
@@ -46,3 +57,26 @@ class ExponentialScheduler(object):
 
     def step(self, t):
         return np.minimum(self.max_t, (1.05) ** (t) * self.init_t)
+
+class ExponentialDecayScheduler(object):
+    def __init__(self, init_t, min_t):
+        """Args:
+            init_t: initial value
+            max_t: max value at last
+        """
+        self.min_t = min_t
+        self.init_t = init_t
+
+    def step(self, t):
+        return np.maximum(self.min_t, (0.95) ** (t) * self.init_t)
+
+
+
+class LinearScheduler(object):
+    def __init__(self, init_t, max_t, num_epoch):
+        self.init_t = init_t
+        self.max_t = max_t
+        self.num_epoch = num_epoch
+
+    def step(self, t):
+        return self.init_t + (self.max_t - self.init_t) / self.num_epoch * t

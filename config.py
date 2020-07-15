@@ -19,14 +19,14 @@ class DefaultConfig(object):
     # hyperparameters
     batch_size = 128
     num_epoch = 50
-    lr = 0.001
-    weight_decay = 1e-4
+    lr = 1e-3
+    weight_decay = 0.0
     
     # if >0, then label noise is imposed on training data
     noise_ratio = 0.0
 
     # curriculum learning for DCLIF
-    curriculum_size = 1000
+    curriculum_size = 10000
 
     # log name
     print_opt = "DEF"

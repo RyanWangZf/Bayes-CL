@@ -89,7 +89,6 @@ def train(**kwargs):
 
                 total_loss = total_loss + loss
 
-
         else:
             # execute curriculum learning
             for idx in range(num_all_batch):
@@ -161,9 +160,9 @@ def train(**kwargs):
 
         # split the curriculum with infinitesimal jackknife (individual influence function)
         all_tr_idx = np.arange(len(x_tr))
-        phi_indiv = compute_individual_influence(model, x_tr, y_tr, s_va)
-        all_tr_idx = rank_index_by_phi(all_tr_idx, phi_indiv)
-        # np.random.shuffle(all_tr_idx)
+        # phi_indiv = compute_individual_influence(model, x_tr, y_tr, s_va)
+        # all_tr_idx = rank_index_by_phi(all_tr_idx, phi_indiv)
+        np.random.shuffle(all_tr_idx)
 
         for idx in range(num_curriculum_batch):
             batch_idx = all_tr_idx[idx*curriculum_size:(idx+1)*curriculum_size]
@@ -247,7 +246,6 @@ def compute_individual_influence(model, x_tr, y_tr, s_va):
             torch.mm(partial_J_b, s_va[1].view(-1,1)))
 
         if_list.append(predicted_loss_diff.view(-1).detach().cpu().numpy())
-
 
     pred_all_if = np.concatenate(if_list)
 
@@ -376,7 +374,8 @@ def hvp(y, w, v):
 
     return return_grads
 
-def evaluate_va_loss(model, x_va, y_va, batch_size=1000):
+def evaluate_va_loss(model, x_va, y_va, batch_size=256):
+    model.eval()
     va_loss = 0
     num_all_batch = int(np.ceil(len(x_va)/batch_size))
     for idx in range(num_all_batch):

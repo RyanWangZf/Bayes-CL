@@ -5,6 +5,7 @@ import pdb, os
 import torch
 import torch.nn.functional as F
 from torch import nn
+import math
 
 class Flatten(nn.Module):
     def __init__(self):
@@ -17,35 +18,54 @@ class SimpleCNN(nn.Module):
     def __init__(self, num_class=10):
         super(SimpleCNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=0)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
         # self.bn1 = nn.BatchNorm2d(32)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d((2,2))
+        self.maxpool1 = nn.MaxPool2d((2,2))
 
-        self.conv2 = nn.Conv2d(32,16, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.maxpool2 = nn.MaxPool2d((2,2))
         # self.bn2 = nn.BatchNorm2d(16)
 
         # name: "dense.weight", "dense.bias"
-        self.dense = nn.Linear(4*4*16, num_class) # 
+        self.linear1 = nn.Linear(64 * 8 * 8, 128) # 
+        self.linear2 = nn.Linear(128, 128)
+        self.dense = nn.Linear(128, num_class)
+
         self.flatten = Flatten()
+
         self.softmax = nn.functional.softmax
 
         self.early_stopper = None
 
+        self._initialize_weights()
+        # for name, param in self.named_parameters():
+        #     if "weight" in name:
+        #         nn.init.normal_(param, mean=0, std=0.01)
+        #     if "bias" in name:
+        #         nn.init.constant_(param, val=0.01)
+
     def forward(self, inputs, hidden=False):
         is_training = self.training
 
-        x = self.conv1(inputs)
+        x = self.conv1(inputs) # ?, 64, 32, 32
         # x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x) # ?, 32, 15, 15
+        x = self.maxpool1(x) # ?, 64, 16, 16
 
-        x = self.conv2(x)
+        x = self.conv2(x) # ?, 64, 16, 16
         # x = self.bn2(x)
         x = self.relu(x)
-        x = self.maxpool(x) # ?, 16, 4, 4
+        x = self.maxpool2(x) # ?, 128, 8, 8
         
-        x = self.flatten(x) # ?, 4*4*16
+        x = self.flatten(x) # ?, 8*8*128
+
+        x = self.linear1(x)
+        x = self.relu(x)
+
+        x = self.linear2(x)
+        x = self.relu(x)
+
         out = self.dense(x) 
         out = self.softmax(out, dim=1)
 
@@ -70,5 +90,19 @@ class SimpleCNN(nn.Module):
         preds = torch.cat(pred_result)
         return preds
 
+    def _initialize_weights(self):
+        print("initialize model weights.")
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
 
 
