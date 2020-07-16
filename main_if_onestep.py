@@ -176,74 +176,87 @@ def main(**kwargs):
     all_tr_idx = np.arange(len(x_tr))
     phi_indiv = compute_individual_influence(model, x_tr, y_tr, s_va)
 
-    # ---------------------------------------------------------------
-    # do influence sampling to arrange the curriculum
-    # ---------------------------------------------------------------
-    
-    # curriculum size
-    num_all_curriculum = int(
-        np.ceil(len(all_tr_idx)/
-        opt.curriculum_size))
-    
-    curriculum_idx_list = build_curriculum_plan(
-        y_tr,
-        phi_indiv,
-        num_class,
-        opt.curriculum_size,
-        num_all_curriculum,
-        T = 1.0)
+    # apply one step pacing function
+    curriculum_idx_list = one_step_pacing(y_tr, phi_indiv, num_class, 0.2, 1.0)
 
-    # ------------------------------------------
-    # 'boost' curriculum
-    # ------------------------------------------
-    boost_tr_idx = np.concatenate(curriculum_idx_list[:3])
-    # boost_tr_idx = all_tr_idx
+    # training on simple set
+    model._initialize_weights()
     va_acc = train(model,
-            boost_tr_idx,
+            curriculum_idx_list[0],
             x_tr, y_tr,
             x_va, y_va, 
-            opt.num_epoch,
+            20,
             opt.batch_size,
             1e-4,
             opt.weight_decay,
             early_stop_ckpt_path,
             5)
+    
+    # training on all set
+    va_acc = train(model,
+        all_tr_idx,
+        x_tr, y_tr,
+        x_va, y_va, 
+        50,
+        opt.batch_size,
+        1e-4,
+        opt.weight_decay,
+        early_stop_ckpt_path,
+        5)
+
     pred_te = predict(model, x_te)
     acc_te = eval_metric(pred_te, y_te)
-    print("curriculum: {}, acc: {}".format("boost", acc_te.item()))
+    print("curriculum: {}, acc: {}".format("one-step pacing", acc_te.item()))
     te_acc_list.append(acc_te.item())
 
-    # ------------------------------------------
-    # 'default' curriculum
-    # ------------------------------------------
-    curriculum_lr_list = np.array([opt.lr] * num_all_curriculum)
-    curriculum_lr_list[-2:] = 1e-4
-    # start training on curriculum plan
-    # init model
-    # model._initialize_weights()
-    # tr_idx = []
-    # for cidx in range(num_all_curriculum):
-    #     tr_idx.extend(curriculum_idx_list[cidx])
-    #     np.random.shuffle(tr_idx)
-
-    #     va_acc = train(model,
-    #         tr_idx,
-    #         x_tr, y_tr,
-    #         x_va, y_va, 
-    #         opt.num_epoch,
-    #         opt.batch_size,
-    #         curriculum_lr_list[cidx],
-    #         opt.weight_decay,
-    #         early_stop_ckpt_path,
-    #         5)
-        
-        # # evaluate model on test set
-        # pred_te = predict(model, x_te)
-        # acc_te = eval_metric(pred_te, y_te)
-        # print("curriculum: {}, acc: {}".format(cidx+1, acc_te.item()))
-        # te_acc_list.append(acc_te.item())
-
     print(te_acc_list)
+
+def one_step_pacing(y,
+    phi,
+    num_class,
+    curriculum_ratio,
+    T = 1.0,
+    ):
+    assert curriculum_ratio <= 1 and curriculum_ratio >=0
+    # init local variables
+    all_class = np.arange(num_class)
+    remain_idx = np.arange(len(phi))
+    curriculum_size = int(curriculum_ratio * len(y))
+    curriculum_size_c = int(curriculum_size / num_class)
+    rest_curriculum_size = curriculum_size - (num_class - 1) * curriculum_size_c
+    curriculum_list = []
+
+    # compute probabilities
+    prob_pi = compute_prob_by_phi(phi, T)
+
+    # one-step pacing
+    sub_idx = []
+
+    remain_y = y[remain_idx].cpu()
+    for c in all_class:
+        remain_idx_c = remain_idx[remain_y == c]
+        prob_pi_remain_c = prob_pi[remain_idx_c]
+
+        if c != num_class-1:
+            sub_idx_c = sampling(
+                remain_idx_c,
+                prob_pi_remain_c, 
+                curriculum_size_c)
+        else:
+            sub_idx_c = sampling(
+                remain_idx_c,
+                prob_pi_remain_c, 
+                rest_curriculum_size)
+        
+        sub_idx.extend(sub_idx_c)
+
+    curriculum_list.append(sub_idx)
+
+    # delete the all ready selected samples
+    remain_idx = np.setdiff1d(remain_idx, sub_idx)
+
+    curriculum_list.append(remain_idx)
+    return curriculum_list
 
 def build_curriculum_plan(y, 
     phi,
@@ -399,6 +412,7 @@ def compute_individual_influence(model, x_tr, y_tr, s_va):
 
         predicted_loss_diff = - (torch.mm(partial_J_theta, s_va[0].view(-1,1)) + 
             torch.mm(partial_J_b, s_va[1].view(-1,1)))
+        
         
         if_list.append(predicted_loss_diff.view(-1).detach().cpu().numpy())
 
