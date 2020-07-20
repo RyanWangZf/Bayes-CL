@@ -199,13 +199,122 @@ def main(**kwargs):
     prec_mat = compute_precision_mat(emp_fmat, len(x_tr))
     model.set_bayesian_precision(prec_mat)
 
-    # do Bayesian inference, compute uncertainty with uncertainty formula
-    pred, epis, alea = model.bayes_infer(x_tr[:10], T=5) # T, ?, c; ?,c; ?,c
+    # compute Bayesian uncertainty form for score of samples
+    tr_score = compute_uncertainty_score(model, x_tr, y_tr, "snr", 32, 5)
 
     # design difficulty by uncertainty difficulty
-    # TODO
-    pdb.set_trace()
-    pass
+    curriculum_idx_list = one_step_pacing(y_tr, tr_score, num_class, 0.2)
+
+    # training on simple set
+    model._initialize_weights()
+
+    va_acc = train(model,
+            curriculum_idx_list[0],
+            x_tr, y_tr,
+            x_va, y_va,
+            20,
+            opt.batch_size,
+            1e-3,
+            opt.weight_decay,
+            early_stop_ckpt_path,
+            5)
+    
+    # training on all set
+    va_acc = train(model,
+        all_tr_idx,
+        x_tr, y_tr,
+        x_va, y_va, 
+        50,
+        opt.batch_size,
+        1e-4,
+        opt.weight_decay,
+        early_stop_ckpt_path,
+        5)
+
+    pred_te = predict(model, x_te)
+    acc_te = eval_metric(pred_te, y_te)
+    print("curriculum: {}, acc: {}".format("one-step pacing", acc_te.item()))
+    te_acc_list.append(acc_te.item())
+    print(te_acc_list)
+
+def one_step_pacing(y, score, num_class, ratio=0.2):
+    """Execute one-step pacing based on difficulty score,
+    Keep the sampled subset balanced in class ratio.
+    Args:
+        ratio: ratio of the first step samples, default 20%.
+    """
+    assert ratio <= 1 and ratio > 0
+    all_class = np.arange(num_class)
+    all_tr_idx = np.arange(len(y))
+    curriculum_list = []
+    curriculum_size = int(ratio * len(y))
+    curriculum_size_c = int(curriculum_size / num_class)
+    rest_curriculum_size = curriculum_size - (num_class - 1) * curriculum_size_c
+
+    y_cpu = y.cpu()
+    sub_idx = []
+    for c in all_class:
+        all_tr_idx_c = all_tr_idx[y_cpu == c]
+        score_c = score[all_tr_idx_c]
+
+        if c != num_class - 1:
+            sub_idx_c = all_tr_idx_c[np.argsort(score_c)][:curriculum_size_c]
+        else:
+            sub_idx_c = all_tr_idx_c[np.argsort(score_c)][:rest_curriculum_size]
+
+        sub_idx.extend(sub_idx_c.tolist())
+    
+    curriculum_list.append(sub_idx)
+    remain_idx = np.setdiff1d(all_tr_idx, sub_idx)
+    curriculum_list.append(remain_idx)
+    return curriculum_list
+
+
+
+def compute_uncertainty_score(model, x_tr, y_tr, mode="mix", batch_size=64, T=5):
+    """Compute uncertainty guided score of samples.
+    Args:
+        mode: should in "mix", "epis", "alea" and "snr";
+            "epis" & "alea": epistemic and aleatoric only
+            "mix": epis + alea
+            "snr": pred / mix, is larger is easier (above three are smaller is easier)
+
+        batch_size, T: # of samples per batch during inference and # of MC sampling,
+            note that due to the parallelled implementation of MC by sample copy trick,
+            the true batch_size would be (batch_size * T), which might encounter oom problem if
+            both are set too large.
+
+    """
+    assert mode in ["mix", "epis", "alea", "snr"]
+    # TODO realize each mode
+    model.eval()
+    all_tr_idx = np.arange(len(x_tr))
+    num_all_batch = int(np.ceil(len(all_tr_idx)/batch_size))
+
+    score_list = []
+    for idx in range(num_all_batch):
+        batch_idx = all_tr_idx[idx*batch_size:(idx+1)*batch_size]
+        x_batch = x_tr[batch_idx]
+        y_batch = y_tr[batch_idx]
+        with torch.no_grad():
+            pred, epis, alea = model.bayes_infer(x_batch, T=T)
+        
+        indices = (np.arange(len(y_batch)), y_batch.cpu().numpy())
+
+        if mode == "mix":
+            score_ = epis[indices] + alea[indices]
+        elif mode == "epis":
+            score_ = epis[indices]
+        elif mode == "alea":
+            score_ = alea[indices]
+        elif mode == "snr":
+            score_ = epis[indices] + alea[indices]
+            score_ = pred.mean(0)[indices] / (1e-16 + score_)
+            score_ = - score_ # snr is smaller is harder
+
+        score_list.extend(score_.cpu().numpy().tolist())
+
+    return np.array(score_list)
 
 def nearestPD(A):
     """Find the nearest positive-definite matrix to input
@@ -272,6 +381,7 @@ def compute_precision_mat(emp_fmat, num_all_sample):
     emp_fmat_ar = emp_fmat.cpu().numpy()
     is_pd = isPD(emp_fmat_ar)
     if not is_pd:
+        print("precision matrix is not PD, do conversion.")
         # transform emp_fmat_ar to PD
         emp_fmat_pd = nearestPD(emp_fmat_ar)
         emp_fmat = torch.from_numpy(emp_fmat_pd).to(emp_fmat.device)
@@ -348,37 +458,3 @@ def compute_emp_fisher_multi(model, x_tr, y_tr, num_class, batch_size=100):
 if __name__ == "__main__":
     import fire
     fire.Fire()
-
-# if __name__ == '__main__':
-#     from dataset import load_data
-#     from utils import img_preprocess
-#     from torch.autograd import grad
-
-#     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data("cifar10", [0, 1])
-
-#     # image processing
-#     x_tr, y_tr = img_preprocess(x_tr, y_tr, False)
-
-
-#     # compute Fisher Information Matrix (FIM) of the dense layer
-#     batch_idx = np.random.choice(np.arange(len(y_tr)), 10)
-#     batch_x = x_tr[batch_idx]
-#     batch_y = y_tr[batch_idx]
-
-#     pred, h_res = model.forward(batch_x, hidden=True)
-#     # loss = F.binary_cross_entropy(pred[:,0], batch_y.float())
-
-#     # grad_w = grad(loss, [model.dense.W_mu], create_graph=True)[0]
-
-#     grad_cal = torch.unsqueeze(1/ len(pred) * h_res.T @ (pred[:,0] - batch_y.float()), 1)
-#     pmat = grad_cal @ grad_cal.T
-#     model.set_bayesian_precision(pmat + 1e-8 * torch.eye(len(pmat)))
-#     res_list = []
-#     for _ in range(100):
-#         res = model.forward(batch_x, sample=True)
-#         res_list.append(res.flatten().detach().numpy().tolist())
-#     res_ar = np.array(res_list)
-#     pdb.set_trace()
-    
-#     pass
-

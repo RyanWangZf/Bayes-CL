@@ -23,6 +23,8 @@ class SimpleCNN(nn.Module):
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
         # self.bn1 = nn.BatchNorm2d(32)
         self.relu = nn.ReLU(inplace=True)
+        
+        self.leaky_relu = nn.LeakyReLU(0.2)
         self.maxpool1 = nn.MaxPool2d((2,2))
 
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
@@ -66,7 +68,7 @@ class SimpleCNN(nn.Module):
         x = self.relu(x)
 
         x = self.linear2(x)
-        x = self.relu(x)
+        x = self.leaky_relu(x)
 
         out = self.dense(x) 
         out = self.softmax(out, dim=1)
@@ -116,6 +118,7 @@ class BNN(nn.Module):
 
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1)
         self.relu = nn.ReLU(inplace=True)
+        self.leaky_relu = nn.LeakyReLU(0.1)
         self.maxpool1 = nn.MaxPool2d((2,2))
 
         self.flatten = Flatten()
@@ -137,15 +140,19 @@ class BNN(nn.Module):
 
         self.num_class = num_class
 
-    def forward(self, inputs, hidden=False, sample=False):
-        is_training = self.training
-
+    def encoder(self, inputs):
         x = self.conv1(inputs)
         x = self.relu(x)
         x = self.maxpool1(x) #?, 32, 8, 8
         x = self.flatten(x) # ?, 2048
         x = self.linear1(x) # ?, 128
         x = self.relu(x)
+        # x = self.leaky_relu(x)
+        return x
+
+    def forward(self, inputs, hidden=False, sample=False):
+        is_training = self.training
+        x = self.encoder(inputs)
 
         # if sample == True, this does Bayesian inference
         out = self.dense(x, sample)
@@ -178,12 +185,7 @@ class BNN(nn.Module):
         is_training = self.training
 
         # deterministic mapping
-        x = self.conv1(inputs)
-        x = self.relu(x)
-        x = self.maxpool1(x) #?, 32, 8, 8
-        x = self.flatten(x) # ?, 2048
-        x = self.linear1(x) # ?, 128
-        x = self.relu(x)
+        x = self.encoder(inputs)
 
         out = self.dense.bayes_forward(x, T) # T, ?, C
 
