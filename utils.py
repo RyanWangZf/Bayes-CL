@@ -46,6 +46,33 @@ def load_model(ckpt_path, model):
     model.load_state_dict(torch.load(ckpt_path))
     return
 
+def predict(model, x):
+    model.eval()
+    batch_size = 1000
+    num_all_batch = np.ceil(len(x)/batch_size).astype(int)
+    pred = []
+    for i in range(num_all_batch):
+        with torch.no_grad():
+            pred_ = model(x[i*batch_size:(i+1)*batch_size])
+            pred.append(pred_)
+
+    pred_all = torch.cat(pred) # ?, num_class
+    return pred_all
+
+def eval_metric(pred, y):
+    pred_argmax = torch.max(pred, 1)[1]
+    acc = torch.sum((pred_argmax == y).float()) / len(y)
+    return acc
+
+def eval_metric_binary(pred, y):
+    pred_label = np.ones(len(pred))
+    y_label = y.detach().cpu().numpy()
+    pred_prob = pred.flatten().cpu().detach().numpy()
+    pred_label[pred_prob < 0.5] = 0.0
+    acc = torch.Tensor(y_label == pred_label).float().mean()
+    return acc
+
+
 class ExponentialScheduler(object):
     def __init__(self, init_t, max_t):
         """Args:

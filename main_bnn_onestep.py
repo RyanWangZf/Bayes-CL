@@ -270,6 +270,9 @@ def one_step_pacing(y, score, num_class, ratio=0.2):
     return curriculum_list
 
 
+# ----------------
+# BNN toolkit
+# ----------------
 
 def compute_uncertainty_score(model, x_tr, y_tr, mode="mix", batch_size=64, T=5):
     """Compute uncertainty guided score of samples.

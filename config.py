@@ -31,6 +31,9 @@ class DefaultConfig(object):
     # log name
     print_opt = "DEF"
 
+    # curriculum learning for self-paced learning
+    spl = "spl"
+
     def parse(self, kwargs):
         for k, v in kwargs.items():
             if not hasattr(self, k):
