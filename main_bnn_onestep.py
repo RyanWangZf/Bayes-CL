@@ -289,7 +289,6 @@ def compute_uncertainty_score(model, x_tr, y_tr, mode="mix", batch_size=64, T=5)
 
     """
     assert mode in ["mix", "epis", "alea", "snr"]
-    # TODO realize each mode
     model.eval()
     all_tr_idx = np.arange(len(x_tr))
     num_all_batch = int(np.ceil(len(all_tr_idx)/batch_size))

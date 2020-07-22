@@ -4,4 +4,6 @@
 # srun --gres=gpu:1 -w node01 python -u main_if_boost.py main --use_gpu=True --batch_size=128 --lr=1e-3 --noise_ratio=0.0 --curriculum_size=10000
 # srun --gres=gpu:1 -w node01 python -u main_if_onestep.py main --use_gpu=True --batch_size=128 --lr=1e-3 --noise_ratio=0.0 --curriculum_size=10000
 # srun --gres=gpu:1 python -u main_bnn_onestep.py main --use_gpu=True --batch_size=64 --lr=1e-3
-srun --gres=gpu:1 python -u main_spl.py main --use_gpu=True --batch_size=64 --lr=1e-3 --spl="splir"
+# srun --gres=gpu:1 python -u main_spl.py main --use_gpu=True --batch_size=64 --lr=1e-3 --spl="splir"
+
+srun --gres=gpu:1 python -u main_cltl.py main --use_gpu=True --batch_size=64 --lr=1e-3
