@@ -26,7 +26,7 @@ def img_preprocess(x, y=None, use_gpu=False):
     else:
         return x
 
-def impose_label_noise(y, noise_ratio):
+def impose_label_noise(y, noise_ratio, return_noise_index=False):
     max_y, min_y = y.max(), y.min()
     all_idx = np.arange(len(y))
     np.random.shuffle(all_idx)
@@ -36,7 +36,10 @@ def impose_label_noise(y, noise_ratio):
     noise_y = np.random.randint(int(min_y), int(max_y) + 1, [num_noise_sample])
     y[noise_idx] = noise_y
     
-    return y
+    if return_noise_index:
+        return y, noise_idx
+    else:
+        return y
 
 def save_model(ckpt_path, model):
     torch.save(model.state_dict(), ckpt_path)
@@ -72,6 +75,9 @@ def eval_metric_binary(pred, y):
     acc = torch.Tensor(y_label == pred_label).float().mean()
     return acc
 
+def adjust_learning_rate(optimizer, lr):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 class ExponentialScheduler(object):
     def __init__(self, init_t, max_t):
