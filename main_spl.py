@@ -7,13 +7,6 @@ Self-paced Learning via Implicit Regularizer (SPL-IR) [3].
 [1] Kumar, M.; Packer, B.; and Koller, D. 2010. Self-paced learning for latent variable models. In NIPS.
 [2] Jiang, L., Meng, D., Zhao, Q., Shan, S., & Hauptmann, A. G. (2015, February). Self-paced curriculum learning. In Twenty-Ninth AAAI Conference on Artificial Intelligence.
 [3] Fan, Y., He, R., Liang, J., & Hu, B. (2017, February). Self-paced learning: an implicit regularization perspective. In Thirty-First AAAI Conference on Artificial Intelligence.
-
-Other baselines wait to be realized:
-1. MentorNet
-2. CL-Transfer
-3. Label Similarity - CL
-4. CurriculumNet
-...
 """
 
 import numpy as np
@@ -453,6 +446,7 @@ def main(**kwargs):
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
+    print("output log dir", log_dir)
 
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
@@ -485,7 +479,6 @@ def main(**kwargs):
     all_tr_idx = np.arange(len(x_tr))
 
     # start spl training
-
     if opt.spl == "spl":
         print("Do self-paced learning, binary.")
         va_acc_init = train_spl(model,

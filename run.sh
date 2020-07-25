@@ -13,7 +13,10 @@
 
 # mentornet, first one: train mentor; second: train student and evaluate student;
 # srun --gres=gpu:1 python -u main_mentornet.py main_train_mentornet --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.2
-srun --gres=gpu:1 python -u main_mentornet.py main --use_gpu=True --batch_size=32 --lr=1e-3 --noise_ratio=0.0
+# srun --gres=gpu:1 python -u main_mentornet.py main --use_gpu=True --batch_size=32 --lr=1e-3 --noise_ratio=0.0
 
 # curriculumNet
 # srun --gres=gpu:1 python -u main_curriculumNet.py main --use_gpu=True --batch_size=32 --lr=1e-3
+
+# differentiable CL
+srun --gres=gpu:1 python -u main_dataparam_cl.py main --use_gpu=True --batch_size=64 --lr=1e-3 --weight_decay=1e-4

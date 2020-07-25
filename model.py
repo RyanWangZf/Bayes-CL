@@ -129,9 +129,12 @@ class BNN(nn.Module):
         if num_class in [None, 2]:
             # binary
             self.dense = BayesLinear(128, 1)
+            # self.dense = nn.Linear(128, 1)
+
         else:
             # multi-class classification
             self.dense = BayesLinear(128, num_class)
+            # self.dense = nn.Linear(128, num_class)
 
         self.softmax = nn.functional.softmax
 
@@ -156,6 +159,8 @@ class BNN(nn.Module):
 
         # if sample == True, this does Bayesian inference
         out = self.dense(x, sample)
+        # out = self.dense(x)
+
 
         if self.num_class in [None, 2]:
             # binary classification
@@ -163,6 +168,22 @@ class BNN(nn.Module):
         else:
             # multi-class classification
             out = self.softmax(out, dim=1)
+
+        if hidden:
+            return out, x
+        else:
+            return out
+    
+    def forward_logits(self, inputs, hidden=False, sample=False):
+        """Do forward without softmax/sigmoid output activation.
+        """
+        is_training = self.training
+        x = self.encoder(inputs)
+
+        # if sample == True, this does Bayesian inference
+        out = self.dense(x, sample)
+        # out = self.dense(x)
+
 
         if hidden:
             return out, x
