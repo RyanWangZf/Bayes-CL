@@ -278,7 +278,6 @@ def one_step_pacing(y, score, num_class, ratio=0.2):
     curriculum_list.append(remain_idx)
     return curriculum_list
 
-
 # ----------------
 # BNN toolkit
 # ----------------

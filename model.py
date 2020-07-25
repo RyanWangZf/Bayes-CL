@@ -305,9 +305,11 @@ class BayesLinear(nn.Module):
         if precision_matrix is not None:
             # sampling for the weight matrix given the precision matrix of Bayesian weight
             num_all_w_param = precision_matrix.shape[0]
+            mean_vec = torch.zeros(num_all_w_param).to(self.device)
             self.eps_distribution = torch.distributions.MultivariateNormal(
-                loc = torch.zeros(num_all_w_param),
+                loc = mean_vec,
                 precision_matrix = precision_matrix)
+            print("initialize a Bayesian linear layer!")
         else:
             # now it is a derterministic nn
             self.eps_distribution = None
@@ -388,3 +390,24 @@ class BayesLinear(nn.Module):
             pred = pred + bias
 
         return pred
+
+class ResNet(nn.Module):
+    """Implementation of a modified ResNet network, on last several layers.
+    """
+    def __init__(self , model, num_class):
+        super(ResNet, self).__init__()
+        self.resnet_layer = nn.Sequential(*list(model.children())[:-1]) # drop the lasy layer
+        self.trans_layer = nn.Linear(model.fc.in_features, 256) # insert a transition layer
+        self.flatten = Flatten()
+        self.fc = nn.Linear(256, num_class)
+        
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.fc(x)
+        return x
+    
+    def encoder(self, x):
+        x = self.resnet_layer(x)
+        x = self.flatten(x)
+        x = self.trans_layer(x)
+        return x        
