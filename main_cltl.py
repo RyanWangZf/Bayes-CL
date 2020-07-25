@@ -21,7 +21,6 @@ from utils import save_model, load_model
 from utils import predict, eval_metric, eval_metric_binary
 from config import opt
 
-
 def train(model,
     sub_idx,
     x_tr, y_tr, 
@@ -110,12 +109,15 @@ def main(**kwargs):
     setup_seed(opt.seed)
     opt.parse(kwargs)
     log_dir = os.path.join(opt.result_dir, "cltl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    print("output log dir", log_dir)
+
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
 
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
+    resnet50_ckpt_path = os.path.join(ckpt_dir, "resnet.pth")
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
@@ -133,8 +135,19 @@ def main(**kwargs):
 
     import torchvision.models as models
     resnet50 = models.resnet50(pretrained = True)
+    resnet50.fc = nn.Linear(resnet50.fc.in_features, num_class, bias=True)
+
     if opt.use_gpu:
         resnet50.cuda()
+
+    # finetune the resnet50 on this dataset
+    if os.path.exists(resnet50_ckpt_path):
+        print("load from finetuned resnet50 model.")
+        load_model(resnet50_ckpt_path, resnet50)
+    else:
+        all_tr_idx = np.arange(len(x_tr))
+        _ = train(resnet50, all_tr_idx, x_tr, y_tr, x_va, y_va,
+            50, 128, 1e-3, 1e-5, resnet50_ckpt_path, 5)
 
     if os.path.exists(os.path.join(log_dir, "tl_score.npy")):
         print("load precomputed difficulty scores.")
@@ -216,6 +229,8 @@ def compute_tl_score(large_net, x_tr, y_tr,):
         with torch.no_grad():
             x_ft = large_net(x_batch)
         x_tr_feat.append(x_ft[0])
+
+    handle.remove()
 
     # fit a svm-rbf to get the scores
     x_tr_feat = torch.cat(x_tr_feat).cpu().numpy()

@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 """Implementation of mentornet for curriculum learning [1].
 
+usage:
+# train mentor net
+python -u main_mentornet.py main_train_mentornet --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.2
+
+# train student net
+python -u main_mentornet.py main --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.0
+
 [1] Jiang, L., Zhou, Z., Leung, T., Li, L. J., & Fei-Fei, L. (2018, July). Mentornet: Learning data-driven curriculum for very deep neural networks on corrupted labels. In International Conference on Machine Learning (pp. 2304-2313).
 """
 
@@ -483,6 +490,8 @@ def main(**kwargs):
     setup_seed(opt.seed)
     opt.parse(kwargs)
     log_dir = os.path.join(opt.result_dir, "mentornet_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    print("output log dir", log_dir)
+
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)

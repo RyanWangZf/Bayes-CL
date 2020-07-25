@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-"""TODO
-1. Bayes transfer, use a resnet50 for predicting uncertainty.
-
-2. torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08)
+"""An implementation of Uncertainty-guided Bayesian Transfer Curriculum Learning.
+Use ResNet50 for predicting uncertainty of data.
+# TODO
 """
 
 import numpy as np
