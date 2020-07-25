@@ -8,5 +8,5 @@ Compared methods to be realized:
 2. MentorNet: main_mentornet.py  
 3. CL-Transfer: main_cltl.py  
 4. CurriculumNet: main_curriculumNet.py  
-5. Differentiable Curriculum: TODO  
+5. Differentiable Curriculum: main_dataparam_cl.py  
 6. Bayes-CL-TL: TODO  
