@@ -442,7 +442,7 @@ def main(**kwargs):
     # pre-setup
     setup_seed(opt.seed)
     opt.parse(kwargs)
-    log_dir = os.path.join(opt.result_dir, "spl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    log_dir = os.path.join(opt.result_dir, "{}_".format(opt.spl) + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
@@ -490,7 +490,7 @@ def main(**kwargs):
             opt.lr, 
             opt.weight_decay,
             early_stop_ckpt_path,
-            3,)
+            5,)
     
     elif opt.spl == "spcl":
         print("Do self-paced curriculum learning, linear.")
@@ -503,9 +503,9 @@ def main(**kwargs):
             opt.lr, 
             opt.weight_decay,
             early_stop_ckpt_path,
-            3,
+            5,
             1e-5,
-            "log")
+            "linear")
 
     elif opt.spl == "splir":
         print("Do self-paced curriculum learning via implicit regularization (spl-ir))")
@@ -518,7 +518,7 @@ def main(**kwargs):
             opt.lr, 
             opt.weight_decay,
             early_stop_ckpt_path,
-            3,
+            5,
             1e-1,)
 
 

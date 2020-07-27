@@ -31,6 +31,9 @@ class DefaultConfig(object):
     # log name
     print_opt = "DEF"
 
+    # mode for bayesian cl: snr, mix, epis, alea
+    bnn = "snr"
+
     # curriculum learning for self-paced learning
     spl = "spl"
 

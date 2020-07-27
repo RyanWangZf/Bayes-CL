@@ -146,6 +146,7 @@ def main(**kwargs):
 
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
+    base_model_path = os.path.join(log_dir, "base_model.pth")
 
     # load data & preprocess
     # x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name, [0, 1])
@@ -175,27 +176,36 @@ def main(**kwargs):
 
     all_tr_idx = np.arange(len(x_tr))
 
-    # first train on the full set
-    va_acc_init = train(model,
-        all_tr_idx,
-        x_tr, y_tr, 
-        x_va, y_va, 
-        opt.num_epoch,
-        opt.batch_size,
-        opt.lr, 
-        opt.weight_decay,
-        early_stop_ckpt_path,
-        3,)
-
-    # evaluate model on test set
-    pred_te = predict(model, x_te)
-    if num_class > 2:
-        acc_te = eval_metric(pred_te, y_te)
+    if os.path.exists(base_model_path):
+        load_model(base_model_path, model)
+        print("load pretrained base model.")
+    
     else:
-        acc_te = eval_metric_binary(pred_te, y_te)
+        # first train on the full set
+        va_acc_init = train(model,
+            all_tr_idx,
+            x_tr, y_tr, 
+            x_va, y_va, 
+            opt.num_epoch,
+            opt.batch_size,
+            opt.lr, 
+            opt.weight_decay,
+            early_stop_ckpt_path,
+            3,)
 
-    print("curriculum: {}, acc: {}".format(0, acc_te.item()))
-    te_acc_list.append(acc_te.item())
+        # evaluate model on test set
+        pred_te = predict(model, x_te)
+        if num_class > 2:
+            acc_te = eval_metric(pred_te, y_te)
+        else:
+            acc_te = eval_metric_binary(pred_te, y_te)
+
+        print("curriculum: {}, acc: {}".format(0, acc_te.item()))
+        te_acc_list.append(acc_te.item())
+
+        # save base model
+        save_model(base_model_path, model)
+        print("base model saved in", base_model_path)
 
     # try to do uncertainty inference
     # first let's calculate Fisher Information Matrix
@@ -209,7 +219,7 @@ def main(**kwargs):
     model.set_bayesian_precision(prec_mat)
 
     # compute Bayesian uncertainty form for score of samples
-    tr_score = compute_uncertainty_score(model, x_tr, y_tr, "snr", 32, 5)
+    tr_score = compute_uncertainty_score(model, x_tr, y_tr, opt.bnn, 32, 5)
 
     # design difficulty by uncertainty difficulty
     curriculum_idx_list = one_step_pacing(y_tr, tr_score, num_class, 0.2)
@@ -223,7 +233,7 @@ def main(**kwargs):
             x_va, y_va,
             20,
             opt.batch_size,
-            1e-3,
+            opt.lr,
             opt.weight_decay,
             early_stop_ckpt_path,
             5)
@@ -235,7 +245,7 @@ def main(**kwargs):
         x_va, y_va, 
         50,
         opt.batch_size,
-        1e-4,
+        opt.lr*0.1,
         opt.weight_decay,
         early_stop_ckpt_path,
         5)

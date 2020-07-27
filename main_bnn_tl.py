@@ -211,7 +211,7 @@ def main(**kwargs):
     set_bayesian_precision(resnet50, prec_mat)
 
     # compute Bayesian uncertainty form for score of samples
-    tr_score = compute_uncertainty_score(resnet50, x_tr, y_tr, "snr", 32, 5)
+    tr_score = compute_uncertainty_score(resnet50, x_tr, y_tr, opt.bnn, 32, 5)
 
     # design difficulty by uncertainty difficulty
     curriculum_idx_list = one_step_pacing(y_tr, tr_score, num_class, 0.2)
@@ -230,7 +230,7 @@ def main(**kwargs):
             x_va, y_va,
             20,
             opt.batch_size,
-            1e-3,
+            opt.lr,
             opt.weight_decay,
             early_stop_ckpt_path,
             5)
@@ -242,7 +242,7 @@ def main(**kwargs):
         x_va, y_va,
         50,
         opt.batch_size,
-        1e-4,
+        0.1*opt.lr,
         opt.weight_decay,
         early_stop_ckpt_path,
         5)

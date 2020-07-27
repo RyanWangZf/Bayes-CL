@@ -110,7 +110,7 @@ class SimpleCNN(nn.Module):
                 m.bias.data.zero_()
 
 class BNN(nn.Module):
-    def __init__(self, num_class=None):
+    def __init__(self, num_class=None, in_size=32):
         """If num_class is set "None", it will be a binary classification network.
         """
         super(BNN, self).__init__()
@@ -123,7 +123,8 @@ class BNN(nn.Module):
 
         self.flatten = Flatten()
 
-        self.linear1 = nn.Linear(32 * 8 * 8, 128)
+        map_size = in_size // 4
+        self.linear1 = nn.Linear(32 * map_size * map_size, 128)
 
         # Bayesian linear layer
         if num_class in [None, 2]:

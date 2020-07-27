@@ -18,7 +18,8 @@ def load_data(data_name, class_list = None):
         return load_cifar10(class_list = class_list)
 
     if data_name == "cifar100":
-        return
+        print("load from CIFAR-100.")
+        return load_cifar100()
 
     if data_name == "":
         return
@@ -90,11 +91,53 @@ def load_cifar10(dir="./data/cifar-10-python", class_list=None):
 
     return tr_features, tr_labels, va_features, va_labels, te_features, te_labels
 
-def load_cifar100(dir="./data/cifar-100-python"):
-    # TODO
+def load_cifar100(dir="./data/cifar-100-python", class_list=None):
+    val_ratio = 0.1
+    tr_filename = os.path.join(dir, "train")
+    te_filename = os.path.join(dir, "test")
 
-    return
+    tr_raw = unpickle(tr_filename)
+    te_raw = unpickle(te_filename)
 
+    tr_data, tr_labels = tr_raw[b"data"], tr_raw[b"coarse_labels"]
+    features = np.reshape(tr_data, (-1, 3, 32, 32))
+    labels = np.array(tr_labels)
+
+    # select from one class
+    if class_list is not None:
+        feat_list, label_list = [], []
+        for c in class_list:
+            tr_feat, tr_label = select_from_one_class(features, labels, c)
+            feat_list.append(tr_feat)
+            label_list.append(tr_label)
+        features = np.concatenate(feat_list)
+        labels = np.concatenate(label_list)
+
+    # split tr and va
+    val_size = int(val_ratio * len(features))
+    all_idx = np.arange(len(features))
+    np.random.shuffle(all_idx)
+    tr_features = features[all_idx[val_size:]]
+    tr_labels = labels[all_idx[val_size:]]
+    va_features = features[all_idx[:val_size]]
+    va_labels = labels[all_idx[:val_size]]
+
+    # load te
+    te_data, te_labels = te_raw[b"data"], te_raw[b"coarse_labels"]
+    te_features = np.reshape(te_data, (-1, 3, 32, 32))
+    te_labels = np.array(te_labels)
+
+    # select from one class
+    if class_list is not None:
+        feat_list, label_list = [], []
+        for c in class_list:
+            tr_feat, tr_label = select_from_one_class(te_features, te_labels, c)
+            feat_list.append(tr_feat)
+            label_list.append(tr_label)
+        te_features = np.concatenate(feat_list)
+        te_labels = np.concatenate(label_list)
+
+    return tr_features, tr_labels, va_features, va_labels, te_features, te_labels
 
 if __name__ == '__main__':
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_cifar100()

@@ -500,7 +500,6 @@ def main(**kwargs):
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
     mentornet_path = os.path.join(log_dir, "mentornet.pth")
 
-
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
     all_tr_idx = np.arange(len(x_tr))

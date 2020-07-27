@@ -108,7 +108,7 @@ def main(**kwargs):
             x_va, y_va,
             20,
             opt.batch_size,
-            1e-3,
+            opt.lr,
             opt.weight_decay,
             early_stop_ckpt_path,
             5)
@@ -120,7 +120,7 @@ def main(**kwargs):
         x_va, y_va, 
         50,
         opt.batch_size,
-        1e-3,
+        opt.lr*0.1,
         opt.weight_decay,
         early_stop_ckpt_path,
         5)
