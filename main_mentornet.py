@@ -375,7 +375,6 @@ def train_student(model, mentor,
 
     return best_va_acc
 
-
 def main_train_mentornet(**kwargs):
     """Call for training the mentornet.
     """
@@ -406,7 +405,8 @@ def main_train_mentornet(**kwargs):
     print("load data done")
 
     # dump student feature
-    model = BNN(num_class=num_class)
+    _, in_channel, in_size, _ = x_tr.shape
+    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     
@@ -522,7 +522,8 @@ def main(**kwargs):
     print("load mentor net done.")
 
     # init model
-    model = BNN(num_class=num_class)
+    _, in_channel, in_size, _ = x_tr.shape
+    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
 

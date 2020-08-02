@@ -88,7 +88,8 @@ def main(**kwargs):
         print("cluster label computed.")
 
     # start curriculum learning for model
-    model = BNN(num_class=num_class)
+    _, in_channel, in_size, _ = x_tr.shape
+    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu

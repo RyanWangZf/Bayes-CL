@@ -163,7 +163,8 @@ def main(**kwargs):
     print("load data done")
 
     # load model
-    model = BNN(num_class=num_class)
+    _, in_channel, in_size, _ = x_tr.shape
+    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu
@@ -191,7 +192,7 @@ def main(**kwargs):
             opt.lr, 
             opt.weight_decay,
             early_stop_ckpt_path,
-            3,)
+            5,)
 
         # evaluate model on test set
         pred_te = predict(model, x_te)

@@ -21,8 +21,13 @@ def load_data(data_name, class_list = None):
         print("load from CIFAR-100.")
         return load_cifar100()
 
-    if data_name == "":
-        return
+    if data_name == "stl10":
+        print("load from stl-10.")
+        return load_stl10()
+
+    if data_name == "svhn":
+        print("load from svhn.")
+        return load_svhn()
 
 def select_from_one_class(x_tr, y_tr, select_class=0):
     all_idx = np.arange(len(x_tr))
@@ -139,8 +144,56 @@ def load_cifar100(dir="./data/cifar-100-python", class_list=None):
 
     return tr_features, tr_labels, va_features, va_labels, te_features, te_labels
 
+def load_stl10(dir_path="./data"):
+    import torchvision.datasets as dset
+    tr = dset.STL10(dir_path,split="train",download=True)
+    te = dset.STL10(dir_path,split="test",download=True)
+    x_tr, y_tr = tr.data, tr.labels # 5000, 3, 96, 96
+    x_te, y_te = te.data, te.labels # 8000, 3, 96, 96
+
+    # split val set
+    val_ratio = 0.1
+    val_size = int(val_ratio * len(x_tr))
+    all_idx = np.arange(len(x_tr))
+    np.random.shuffle(all_idx)
+
+    x_va, y_va = x_tr[all_idx[:val_size]], y_tr[all_idx[:val_size]]
+    x_tr, y_tr = x_tr[all_idx[val_size:]], y_tr[all_idx[val_size:]]
+
+    return x_tr, y_tr, x_va, y_va, x_te, y_te
+
+def load_svhn(dir_path="./data/svhn"):
+    from scipy.io import loadmat
+    tr_filename = os.path.join(dir_path, "train_32x32.mat")
+    te_filename = os.path.join(dir_path, "test_32x32.mat")
+
+    tr_mat = loadmat(tr_filename)
+    te_mat = loadmat(te_filename)
+
+    x_tr, y_tr = tr_mat["X"], tr_mat["y"]
+    x_te, y_te = te_mat["X"], te_mat["y"]
+
+    y_tr = y_tr.flatten() - 1 # map to 0 - 9
+    y_te = y_te.flatten() - 1 # map to 0 - 9
+
+    x_tr = np.transpose(x_tr, (3,2,0,1))
+    x_te = np.transpose(x_te, (3,2,0,1))
+
+    # split val set
+    val_ratio = 0.1
+    val_size = int(val_ratio * len(x_tr))
+    all_idx = np.arange(len(x_tr))
+    np.random.shuffle(all_idx)
+
+    x_va, y_va = x_tr[all_idx[:val_size]], y_tr[all_idx[:val_size]]
+    x_tr, y_tr = x_tr[all_idx[val_size:]], y_tr[all_idx[val_size:]]
+
+    return x_tr, y_tr, x_va, y_va, x_te, y_te
+
+
+
 if __name__ == '__main__':
-    x_tr, y_tr, x_va, y_va, x_te, y_te = load_cifar100()
+    x_tr, y_tr, x_va, y_va, x_te, y_te = load_svhn()
     pdb.set_trace()
     pass
 

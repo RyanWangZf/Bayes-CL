@@ -110,13 +110,13 @@ class SimpleCNN(nn.Module):
                 m.bias.data.zero_()
 
 class BNN(nn.Module):
-    def __init__(self, num_class=None, in_size=32):
+    def __init__(self, num_class=None, in_size=32, in_channel=3):
         """If num_class is set "None", it will be a binary classification network.
         """
         super(BNN, self).__init__()
         assert num_class != 1 and num_class > 0
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(in_channel, 32, kernel_size=3, stride=2, padding=1)
         self.relu = nn.ReLU(inplace=True)
         self.leaky_relu = nn.LeakyReLU(0.1)
         self.maxpool1 = nn.MaxPool2d((2,2))

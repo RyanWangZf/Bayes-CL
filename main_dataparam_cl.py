@@ -25,7 +25,7 @@ def main(**kwargs):
     # pre-setup
     setup_seed(opt.seed)
     opt.parse(kwargs)
-    log_dir = os.path.join(opt.result_dir, "spl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    log_dir = os.path.join(opt.result_dir, "dataparam_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
     print("output log dir", log_dir)
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
     if not os.path.exists(ckpt_dir):
@@ -48,7 +48,8 @@ def main(**kwargs):
     print("load data done")
 
     # load model
-    model = BNN(num_class=num_class)
+    _, in_channel, in_size, _ = x_tr.shape
+    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu
