@@ -129,6 +129,11 @@ dmypy.json
 .pyre/
 
 # Customized
-data/
-training_logs/
-out/
+UCL-Image/data/
+UCL-Image/training_logs/
+UCL-Image/out/
+UCL-Text/data/
+UCL-Text/training_logs/
+UCL-Text/out/
+
+
