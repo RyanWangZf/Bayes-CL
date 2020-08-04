@@ -307,11 +307,11 @@ class BertMLP(torch.nn.Module):
 
     def encoder(self, inputs):
         x = self.linear_1(inputs)
+        x = F.relu(x)
         return x
     
     def forward(self, inputs):
         h = self.encoder(inputs)
-        h = F.relu(h)
         x = self.fc(h)
         if self.num_class > 2:
             out = self.softmax(x)
