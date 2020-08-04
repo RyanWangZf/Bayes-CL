@@ -180,6 +180,7 @@ def train(model,
         
         if epoch == 0:
             best_va_acc = acc_va
+            save_model(early_stop_ckpt_path, model)
 
         if acc_va > best_va_acc:
             best_va_acc = acc_va

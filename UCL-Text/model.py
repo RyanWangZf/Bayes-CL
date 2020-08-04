@@ -294,6 +294,31 @@ class BayesLinear(nn.Module):
 
         return pred
 
+class BertMLP(torch.nn.Module):
+    def __init__(self, num_class, in_size=768):
+        super(BertMLP, self).__init__()
+        self.linear_1 = nn.Linear(in_size, 128)
+        self.softmax = F.softmax
+        self.num_class = num_class
+        if self.num_class > 2:
+            self.fc = nn.Linear(128, num_class)
+        else:
+            self.fc = nn.Linear(128, 1)
+
+    def encoder(self, inputs):
+        x = self.linear_1(inputs)
+        return x
+    
+    def forward(self, inputs):
+        h = self.encoder(inputs)
+        h = F.relu(h)
+        x = self.fc(h)
+        if self.num_class > 2:
+            out = self.softmax(x)
+        else:
+            out = torch.sigmoid(x)
+        return out
+
 # if __name__ == "__main__":
 #     from dataset import load_20ng
 #     x_tr, y_tr, x_va, y_va, x_te, y_te, vocab_size = load_20ng(mode="onehot")
