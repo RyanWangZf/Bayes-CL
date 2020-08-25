@@ -7,6 +7,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn
 
+from collections import defaultdict
+
 def setup_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -16,7 +18,6 @@ def setup_seed(seed):
 def img_preprocess(x, y=None, use_gpu=False):
     x = torch.Tensor(x) / 255.0
     # x = x - 0.5 # [-0.5, 0.5]
-
     if use_gpu:
         x = x.cuda()
 
@@ -50,7 +51,11 @@ def save_model(ckpt_path, model):
     return
 
 def load_model(ckpt_path, model):
-    model.load_state_dict(torch.load(ckpt_path))
+    try:
+        model.load_state_dict(torch.load(ckpt_path))
+    except:
+        model.load_state_dict(torch.load(ckpt_path, map_location="cpu"))
+
     return
 
 def predict(model, x):
@@ -165,6 +170,75 @@ def train(model,
             break
 
     return best_va_acc
+
+def babystep_pacing(y, score, num_class, num_step=2):
+    """Execute multiple steps of pacing.
+    """
+    assert num_step > 1 and num_step <= 5
+    ratio = 0.2 # fix 20% for the first steps
+    curriculum_size = int(ratio * len(y))
+    curriculum_size_c = int(curriculum_size / num_class)
+    split_list = [(i+1)*curriculum_size_c for i in range(num_step-1)]
+    all_class = np.arange(num_class)
+    
+    rank_idx = np.argsort(score)
+    y_rank = y.cpu()[rank_idx]
+
+    curriculum_result = defaultdict(list)
+
+    for c in all_class:
+        rank_idx_c = rank_idx[y_rank == c]
+        # make split
+        res = np.split(rank_idx_c, split_list) # num_step, curriculum_size_c
+        for i in range(num_step):
+            curriculum_result[i].extend(res[i])
+
+    # concatenate each class within same curriculum together
+    curriculum_list = []
+    cumulative_idx = []
+    for i in range(num_step):
+        this_curriculum = curriculum_result[i]
+        cumulative_idx.extend(this_curriculum)
+        curriculum_list.append(cumulative_idx.copy())
+
+    return curriculum_list
+
+def one_step_pacing(y, score, num_class, ratio=0.2, curriculum_size = None):
+    """Execute one-step pacing based on difficulty score,
+    Keep the sampled subset balanced in class ratio.
+    Args:
+        ratio: ratio of the first step samples, default 20%.
+        curriculum_size: size of the targeted pacing, if is not None, the ratio will be neglected.
+    """
+    assert ratio <= 1 and ratio > 0
+    all_class = np.arange(num_class)
+    all_tr_idx = np.arange(len(y))
+    curriculum_list = []
+    if curriculum_size is None:
+        curriculum_size = int(ratio * len(y))
+        curriculum_size_c = int(curriculum_size / num_class)
+        rest_curriculum_size = curriculum_size - (num_class - 1) * curriculum_size_c
+    else:
+        curriculum_size_c = int(curriculum_size / num_class)
+        rest_curriculum_size = curriculum_size - (num_class - 1) * curriculum_size_c
+
+    y_cpu = y.cpu()
+    sub_idx = []
+    for c in all_class:
+        all_tr_idx_c = all_tr_idx[y_cpu == c]
+        score_c = score[all_tr_idx_c]
+
+        if c != num_class - 1:
+            sub_idx_c = all_tr_idx_c[np.argsort(score_c)][:curriculum_size_c]
+        else:
+            sub_idx_c = all_tr_idx_c[np.argsort(score_c)][:rest_curriculum_size]
+
+        sub_idx.extend(sub_idx_c.tolist())
+    
+    curriculum_list.append(sub_idx)
+    remain_idx = np.setdiff1d(all_tr_idx, sub_idx)
+    curriculum_list.append(remain_idx)
+    return curriculum_list
 
 class ExponentialScheduler(object):
     def __init__(self, init_t, max_t):

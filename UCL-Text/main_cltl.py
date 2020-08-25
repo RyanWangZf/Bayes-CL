@@ -94,7 +94,8 @@ def main(**kwargs):
     all_tr_idx = np.arange(len(x_tr))
 
     # design difficulty by uncertainty difficulty
-    curriculum_idx_list = one_step_pacing(y_tr, score_list, num_class, 0.2)
+    # transfer learning score are smaller 
+    curriculum_idx_list = one_step_pacing(y_tr, -score_list, num_class, 0.2)
 
     te_acc_list = []
 

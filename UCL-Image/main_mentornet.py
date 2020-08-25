@@ -21,7 +21,7 @@ import torch.optim as optim
 from dataset import load_data
 
 from utils import setup_seed, img_preprocess, impose_label_noise
-from model import BNN
+from model import LeNet
 from utils import save_model, load_model
 from utils import predict, eval_metric, eval_metric_binary
 from utils import adjust_learning_rate
@@ -389,6 +389,7 @@ def main_train_mentornet(**kwargs):
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
     mentornet_path = os.path.join(log_dir, "mentornet.pth")
+    early_stop_stu_path = os.path.join(ckpt_dir, "best_va_stu.pth")
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
@@ -406,7 +407,7 @@ def main_train_mentornet(**kwargs):
 
     # dump student feature
     _, in_channel, in_size, _ = x_tr.shape
-    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
+    model = LeNet(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     
@@ -424,7 +425,7 @@ def main_train_mentornet(**kwargs):
                 opt.batch_size,
                 opt.lr,
                 opt.weight_decay,
-                early_stop_ckpt_path,
+                early_stop_stu_path,
                 5)
 
         np.save(stu_feat_name, stu_feat)
@@ -499,6 +500,8 @@ def main(**kwargs):
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
     mentornet_path = os.path.join(log_dir, "mentornet.pth")
+    early_stop_stu_path = os.path.join(ckpt_dir, "best_va_stu.pth")
+    output_result_path = os.path.join(log_dir, "ugcl_{}.result".format(opt.bnn))
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
@@ -523,13 +526,13 @@ def main(**kwargs):
 
     # init model
     _, in_channel, in_size, _ = x_tr.shape
-    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
+    model = LeNet(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
 
     # training
     best_va_acc = train_student(model, mentor, all_tr_idx, x_tr, y_tr, x_va, y_va, opt.num_epoch,
-        opt.batch_size, opt.lr, opt.weight_decay, early_stop_ckpt_path, 5)
+        opt.batch_size, opt.lr, opt.weight_decay, early_stop_stu_path, 5)
     
     # evaluate model on test set
     pred_te = predict(model, x_te)
@@ -539,6 +542,9 @@ def main(**kwargs):
         acc_te = eval_metric_binary(pred_te, y_te)
 
     print("curriculum: {}, acc: {}".format(0, acc_te.item()))
+
+    with open(output_result_path, "w") as f:
+        f.write(str(acc_te.item()) + "\n")
     return
 
 if __name__ == "__main__":

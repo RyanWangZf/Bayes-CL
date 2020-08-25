@@ -1,11 +1,5 @@
 # -*- coding: utf-8 -*-
 
-"""TODO
-1. Bayes transfer, use a resnet50 for predicting uncertainty.
-
-2. torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08)
-"""
-
 import numpy as np
 import pdb, os
 from numpy import linalg as la
@@ -50,94 +44,11 @@ def eval_metric_binary(pred, y):
     acc = torch.Tensor(y_label == pred_label).float().mean()
     return acc
 
-def train(model,
-    sub_idx,
-    x_tr, y_tr, 
-    x_va, y_va, 
-    num_epoch,
-    batch_size,
-    lr, 
-    weight_decay,
-    early_stop_ckpt_path,
-    early_stop_tolerance=3,
-    ):
-    """Given selected subset, train the model until converge.
-    """
-    # early stop
-    best_va_acc = 0
-    num_all_train = 0
-    early_stop_counter = 0
-
-    # init training
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=opt.lr, weight_decay=opt.weight_decay)
-    num_all_tr_batch = int(np.ceil(len(sub_idx) / batch_size))
-
-    # num class
-    num_class = torch.unique(y_va).shape[0]
-
-    for epoch in range(num_epoch):
-        total_loss = 0
-        model.train()
-        np.random.shuffle(sub_idx)
-
-        for idx in range(num_all_tr_batch):
-            batch_idx = sub_idx[idx*batch_size:(idx+1)*batch_size]
-            x_batch = x_tr[batch_idx]
-            y_batch = y_tr[batch_idx]
-
-            pred = model(x_batch)
-            if num_class > 2:
-                loss = F.cross_entropy(pred, y_batch,
-                    reduction="none")
-            else:
-                loss = F.binary_cross_entropy(pred[:,0], y_batch.float(), 
-                    reduction="none")
-
-            sum_loss = torch.sum(loss)
-            avg_loss = torch.mean(loss)
-
-            num_all_train += len(x_batch)
-            optimizer.zero_grad()
-            avg_loss.backward()
-            optimizer.step()
-
-            total_loss = total_loss + sum_loss.detach()
-        
-        # evaluate on va set
-        model.eval()
-        pred_va = predict(model, x_va)
-        if num_class > 2:
-            acc_va = eval_metric(pred_va, y_va)
-        else:
-            acc_va = eval_metric_binary(pred_va, y_va)
-
-        print("epoch: {}, acc: {}".format(epoch, acc_va.item()))
-        
-        if epoch == 0:
-            best_va_acc = acc_va
-
-        if acc_va > best_va_acc:
-            best_va_acc = acc_va
-            early_stop_counter = 0
-            # save model
-            save_model(early_stop_ckpt_path, model)
-
-        else:
-            early_stop_counter += 1
-
-        if early_stop_counter >= early_stop_tolerance:
-            print("early stop on epoch {}, val acc {}".format(epoch, best_va_acc))
-            # load model from the best checkpoint
-            load_model(early_stop_ckpt_path, model)
-            break
-
-    return best_va_acc
-
 def main(**kwargs):
     # pre-setup
     setup_seed(opt.seed)
     opt.parse(kwargs)
-    log_dir = os.path.join(opt.result_dir, "bcl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
+    log_dir = os.path.join(opt.result_dir, "test_ucl_" + opt.model + "_"  + opt.data_name + "_" + opt.print_opt)
     print("output log dir", log_dir)
 
     ckpt_dir = os.path.join(os.path.join(log_dir, "ckpt"))
@@ -177,85 +88,32 @@ def main(**kwargs):
 
     all_tr_idx = np.arange(len(x_tr))
 
-    if os.path.exists(base_model_path):
-        load_model(base_model_path, model)
-        print("load pretrained base model.")
-    
-    else:
-        # first train on the full set
-        va_acc_init = train(model,
-            all_tr_idx,
-            x_tr, y_tr, 
-            x_va, y_va, 
-            opt.num_epoch,
-            opt.batch_size,
-            opt.lr, 
-            opt.weight_decay,
-            early_stop_ckpt_path,
-            5,)
-
-        # evaluate model on test set
-        pred_te = predict(model, x_te)
-        if num_class > 2:
-            acc_te = eval_metric(pred_te, y_te)
-        else:
-            acc_te = eval_metric_binary(pred_te, y_te)
-
-        print("curriculum: {}, acc: {}".format(0, acc_te.item()))
-        te_acc_list.append(acc_te.item())
-
-        # save base model
-        save_model(base_model_path, model)
-        print("base model saved in", base_model_path)
-
-    # try to do uncertainty inference
-    # first let's calculate Fisher Information Matrix
-    if num_class > 2:
-        emp_fmat = compute_emp_fisher_multi(model, x_tr, y_tr, num_class, 100)
-    else:
-        emp_fmat = compute_emp_fisher_binary(model, x_tr, y_tr, 100)
-
-    # compute a PSD precision matrix based on empirical fisher information matrix
-    prec_mat = compute_precision_mat(emp_fmat, len(x_tr))
-    model.set_bayesian_precision(prec_mat)
-
-    # compute Bayesian uncertainty form for score of samples
-    tr_score = compute_uncertainty_score(model, x_tr, y_tr, opt.bnn, 32, 5)
-
-    # design difficulty by uncertainty difficulty
-    curriculum_idx_list = one_step_pacing(y_tr, tr_score, num_class, 0.2)
-
-    # training on simple set
-    model._initialize_weights()
-
-    va_acc = train(model,
-            curriculum_idx_list[0],
-            x_tr, y_tr,
-            x_va, y_va,
-            20,
-            opt.batch_size,
-            opt.lr,
-            opt.weight_decay,
-            early_stop_ckpt_path,
-            5)
-    
-    # training on all set
-    va_acc = train(model,
-        all_tr_idx,
-        x_tr, y_tr,
-        x_va, y_va, 
-        50,
+    # test on no-CL method
+    sub_uniform_idx = np.random.choice(all_tr_idx, int(0.2*len(all_tr_idx)), replace=False)
+    te_acc_init = train(model,
+        sub_uniform_idx,
+        x_tr, y_tr, 
+        x_te, y_te, # we want test acc
+        20,
         opt.batch_size,
-        opt.lr*0.1,
+        opt.lr, 
         opt.weight_decay,
         early_stop_ckpt_path,
-        5)
+        5,)
 
-    pred_te = predict(model, x_te)
-    acc_te = eval_metric(pred_te, y_te)
-    print("curriculum: {}, acc: {}".format("one-step pacing", acc_te.item()))
-    te_acc_list.append(acc_te.item())
-    print(te_acc_list)
+    te_acc_final = train(model,
+        all_tr_idx,
+        x_tr, y_tr, 
+        x_te, y_te, # we want test acc
+        50,
+        opt.batch_size,
+        opt.lr, 
+        opt.weight_decay,
+        early_stop_ckpt_path,
+        5,)
+
+    print("no-cl, init:{}, final:{}".format(te_acc_init, te_acc_final))
+
 
 def one_step_pacing(y, score, num_class, ratio=0.2):
     """Execute one-step pacing based on difficulty score,
@@ -475,6 +333,88 @@ def compute_emp_fisher_multi(model, x_tr, y_tr, num_class, batch_size=100):
 
     return pmat
 
+def train(model,
+    sub_idx,
+    x_tr, y_tr, 
+    x_va, y_va, 
+    num_epoch,
+    batch_size,
+    lr, 
+    weight_decay,
+    early_stop_ckpt_path,
+    early_stop_tolerance=5,
+    ):
+    """Given selected subset, train the model until converge.
+    """
+    # early stop
+    best_va_acc = 0
+    num_all_train = 0
+    early_stop_counter = 0
+
+    # init training
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=opt.lr, weight_decay=opt.weight_decay)
+    num_all_tr_batch = int(np.ceil(len(sub_idx) / batch_size))
+
+    # num class
+    num_class = torch.unique(y_va).shape[0]
+
+    for epoch in range(num_epoch):
+        total_loss = 0
+        model.train()
+        np.random.shuffle(sub_idx)
+
+        for idx in range(num_all_tr_batch):
+            batch_idx = sub_idx[idx*batch_size:(idx+1)*batch_size]
+            x_batch = x_tr[batch_idx]
+            y_batch = y_tr[batch_idx]
+
+            pred = model(x_batch)
+            if num_class > 2:
+                loss = F.cross_entropy(pred, y_batch,
+                    reduction="none")
+            else:
+                loss = F.binary_cross_entropy(pred[:,0], y_batch.float(), 
+                    reduction="none")
+
+            sum_loss = torch.sum(loss)
+            avg_loss = torch.mean(loss)
+
+            num_all_train += len(x_batch)
+            optimizer.zero_grad()
+            avg_loss.backward()
+            optimizer.step()
+
+            total_loss = total_loss + sum_loss.detach()
+        
+        # evaluate on va set
+        model.eval()
+        pred_va = predict(model, x_va)
+        if num_class > 2:
+            acc_va = eval_metric(pred_va, y_va)
+        else:
+            acc_va = eval_metric_binary(pred_va, y_va)
+
+        print("epoch: {}, acc: {}".format(epoch, acc_va.item()))
+        
+        if epoch == 0:
+            best_va_acc = acc_va
+
+        if acc_va > best_va_acc:
+            best_va_acc = acc_va
+            early_stop_counter = 0
+            # save model
+            save_model(early_stop_ckpt_path, model)
+
+        else:
+            early_stop_counter += 1
+
+        if early_stop_counter >= early_stop_tolerance:
+            print("early stop on epoch {}, val acc {}".format(epoch, best_va_acc))
+            # load model from the best checkpoint
+            load_model(early_stop_ckpt_path, model)
+            break
+
+    return best_va_acc
 
 if __name__ == "__main__":
     import fire

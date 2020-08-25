@@ -14,7 +14,7 @@ import torch.optim as optim
 
 from dataset import load_data
 
-from model import BNN
+from model import LeNet
 
 from utils import save_model, load_model
 from utils import train
@@ -43,7 +43,9 @@ def main(**kwargs):
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
     resnet50_ckpt_path = os.path.join(ckpt_dir, "resnet.pth")
     cluster_label_path = os.path.join(log_dir, "cluster_label.npy")
- 
+    early_stop_stu_path = os.path.join(ckpt_dir, "best_va_stu.pth")
+    output_result_path = os.path.join(log_dir, "curriculumNet.result")
+
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
     all_tr_idx = np.arange(len(x_tr))
@@ -89,7 +91,7 @@ def main(**kwargs):
 
     # start curriculum learning for model
     _, in_channel, in_size, _ = x_tr.shape
-    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
+    model = LeNet(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu
@@ -107,12 +109,21 @@ def main(**kwargs):
             simple_sub_idx,
             x_tr, y_tr,
             x_va, y_va,
-            20,
-            opt.batch_size,
+            30,
+            opt.batch_size // 2,
             opt.lr,
             opt.weight_decay,
-            early_stop_ckpt_path,
+            early_stop_stu_path,
             5)
+            
+    # evaluate test acc
+    pred_te = predict(model, x_te)
+    if num_class > 2:
+        acc_te = eval_metric(pred_te, y_te)
+    else:
+        acc_te = eval_metric_binary(pred_te, y_te)
+    first_stage_acc = acc_te
+    print("first stage acc:", first_stage_acc)
 
     # training on all set
     va_acc = train(model,
@@ -121,9 +132,9 @@ def main(**kwargs):
         x_va, y_va, 
         50,
         opt.batch_size,
-        opt.lr*0.1,
+        opt.lr,
         opt.weight_decay,
-        early_stop_ckpt_path,
+        early_stop_stu_path,
         5)
 
     pred_te = predict(model, x_te)
@@ -131,7 +142,10 @@ def main(**kwargs):
     print("curriculum: {}, acc: {}".format("one-step pacing", acc_te.item()))
     te_acc_list.append(acc_te.item())
     print(te_acc_list)
-
+    
+    res_list = [str(_) for _ in [first_stage_acc.item(), acc_te.item()]]
+    with open(output_result_path, "w") as f:
+        f.write("\n".join(res_list) + "\n")
 
 def extract_model_feature(resnet, x_tr):
     """Extract penultimate output features from resnet by doing inference.

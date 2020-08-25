@@ -7,6 +7,7 @@ import torchvision.transforms
 import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn
+from collections import defaultdict
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -72,7 +73,10 @@ def save_model(ckpt_path, model):
     return
 
 def load_model(ckpt_path, model):
-    model.load_state_dict(torch.load(ckpt_path))
+    try:
+        model.load_state_dict(torch.load(ckpt_path))
+    except:
+        model.load_state_dict(torch.load(ckpt_path,map_location='cpu'))
     return
 
 def predict(model, x):
@@ -198,6 +202,39 @@ def train(model,
             break
 
     return best_va_acc
+
+def babystep_pacing(y, score, num_class, num_step=2):
+    """Execute multiple steps of pacing.
+    """
+    assert num_step > 1 and num_step <= 5
+    ratio = 0.2 # fix 20% for the first steps
+    curriculum_size = int(ratio * len(y))
+    curriculum_size_c = int(curriculum_size / num_class)
+    split_list = [(i+1)*curriculum_size_c for i in range(num_step-1)]
+    all_class = np.arange(num_class)
+    
+    rank_idx = np.argsort(score)
+    y_rank = y.cpu()[rank_idx]
+
+    curriculum_result = defaultdict(list)
+
+    for c in all_class:
+        rank_idx_c = rank_idx[y_rank == c]
+        # make split
+        res = np.split(rank_idx_c, split_list) # num_step, curriculum_size_c
+        for i in range(num_step):
+            curriculum_result[i].extend(res[i])
+
+    # concatenate each class within same curriculum together
+    curriculum_list = []
+    cumulative_idx = []
+    for i in range(num_step):
+        this_curriculum = curriculum_result[i]
+        cumulative_idx.extend(this_curriculum)
+        curriculum_list.append(cumulative_idx.copy())
+
+    return curriculum_list
+
 
 class ExponentialScheduler(object):
     def __init__(self, init_t, max_t):

@@ -34,6 +34,9 @@ class DefaultConfig(object):
     # mode for bayesian cl: snr, mix, epis, alea
     bnn = "snr"
 
+    # number of babysteps in [2, 5]
+    baby_step = 2
+
     # curriculum learning for self-paced learning
     spl = "spl"
 

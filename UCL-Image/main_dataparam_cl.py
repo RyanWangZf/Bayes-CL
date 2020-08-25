@@ -14,7 +14,7 @@ import torch.optim as optim
 from dataset import load_data
 
 from utils import setup_seed, img_preprocess, impose_label_noise
-from model import BNN
+from model import LeNet
 from utils import save_model, load_model
 from utils import predict, eval_metric, eval_metric_binary
 from config import opt
@@ -33,6 +33,7 @@ def main(**kwargs):
 
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
+    output_result_path = os.path.join(log_dir, "dataparam.result")
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
@@ -49,7 +50,7 @@ def main(**kwargs):
 
     # load model
     _, in_channel, in_size, _ = x_tr.shape
-    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
+    model = LeNet(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu
@@ -77,7 +78,8 @@ def main(**kwargs):
         acc_te = eval_metric_binary(pred_te, y_te)
 
     print("curriculum: {}, acc: {}".format(0, acc_te.item()))
-
+    with open(output_result_path, "w") as f:
+        f.write(str(acc_te.item()) + "\n")
 
 def train_dataparam(model,
     sub_idx,

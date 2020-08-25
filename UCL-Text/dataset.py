@@ -209,6 +209,15 @@ def load_data(name="20ng", data_dir = "./data", mode="onehot"):
 
     return x_tr, y_tr, x_va, y_va, x_te, y_te, vocab_size
 
+def get_id2word_func(data_name="mr"):
+
+    vocab_path = os.path.join("./data/corpus/","{}_vocab.txt".format(data_name))
+    with open(vocab_path, "r", encoding="utf-8") as f:
+        vocab_list = [x.strip() for x in f.readlines()]
+    vocab_list = ["\n"] + vocab_list
+    id2word_func = np.vectorize(lambda x: vocab_list[x])
+    return id2word_func
+
 if __name__ == "__main__":
     x_tr, y_tr, x_va, y_va, x_te, y_te, vocab_size = load_data(name="R52", mode="onehot")
     pdb.set_trace()

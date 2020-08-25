@@ -57,4 +57,63 @@
 # srun --gres=gpu:1 python -u main_mentornet.py main --data_name="ohsumed" --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.0 --weight_decay=1e-4
 
 # srun --gres=gpu:1 python -u main_mentornet.py main_train_mentornet --data_name="mr" --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.2
-srun --gres=gpu:1 python -u main_mentornet.py main --data_name="mr" --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.0
+# srun --gres=gpu:1 python -u main_mentornet.py main --data_name="mr" --use_gpu=True --batch_size=64 --lr=1e-3 --noise_ratio=0.0
+
+
+# srun --gres=gpu:1 python -u main_ucl.py main --data_name="20ng" --bnn="mix" --batch_size=64 --lr=1e-3 &
+# srun --gres=gpu:1 python -u main_ucl_tl.py main --data_name="20ng" --bnn="mix" --batch_size=64 --lr=1e-3 &
+
+# compute score
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="20ng" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="20ng" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="20ng" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="20ng" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="20ng" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="20ng" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="20ng" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="20ng" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="ohsumed" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="ohsumed" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="ohsumed" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="ohsumed" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="ohsumed" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="ohsumed" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="ohsumed" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="ohsumed" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="mr" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="mr" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="mr" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="mr" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="mr" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="mr" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="mr" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="mr" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="R52" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="R52" --bnn="mix" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="R52" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="R52" --bnn="alea" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="R52" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="R52" --bnn="epis" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl.py main --data_name="R52" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+# srun --gres=gpu:1 --qos=high python -u main_ucl_tl.py main --data_name="R52" --bnn="snr" --use_gpu=True --batch_size=32 --lr=1e-3 &
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+#     main --data_name="20ng" --baby_step=3 --bnn="snr" --batch_size=64 --lr=1e-3
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+#     main --data_name="20ng" --baby_step=4 --bnn="snr" --batch_size=64 --lr=1e-3
+
+# srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+#     main --data_name="20ng" --baby_step=5 --bnn="snr" --batch_size=64 --lr=1e-3
+
+srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+    main --data_name="mr" --baby_step=3 --bnn="snr" --batch_size=64 --lr=1e-3
+
+srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+    main --data_name="mr" --baby_step=4 --bnn="snr" --batch_size=64 --lr=1e-3
+
+srun --gres=gpu:1 --qos=high python -u main_ucl_babystep.py \
+    main --data_name="mr" --baby_step=5 --bnn="snr" --batch_size=64 --lr=1e-3

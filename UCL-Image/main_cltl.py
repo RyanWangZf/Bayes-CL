@@ -16,7 +16,7 @@ import torch.optim as optim
 from dataset import load_data
 
 from utils import setup_seed, img_preprocess, impose_label_noise
-from model import BNN
+from model import LeNet
 from utils import save_model, load_model
 from utils import predict, eval_metric, eval_metric_binary
 from config import opt
@@ -118,6 +118,9 @@ def main(**kwargs):
     # intermediate file for early stopping
     early_stop_ckpt_path = os.path.join(ckpt_dir, "best_va.pth")
     resnet50_ckpt_path = os.path.join(ckpt_dir, "resnet.pth")
+    early_stop_stu_path = os.path.join(ckpt_dir, "best_va_stu_{}.pth".format(opt.bnn))
+
+    output_result_path = os.path.join(log_dir, "cltl.result")
 
     # load data & preprocess
     x_tr, y_tr, x_va, y_va, x_te, y_te = load_data(opt.data_name)
@@ -158,7 +161,7 @@ def main(**kwargs):
 
     # load model
     _, in_channel, in_size, _ = x_tr.shape
-    model = BNN(num_class=num_class, in_size=in_size, in_channel=in_channel)
+    model = LeNet(num_class=num_class, in_size=in_size, in_channel=in_channel)
     if opt.use_gpu:
         model.cuda()
     model.use_gpu = opt.use_gpu
@@ -173,13 +176,22 @@ def main(**kwargs):
             curriculum_idx_list[0],
             x_tr, y_tr,
             x_va, y_va,
-            20,
-            opt.batch_size,
-            1e-3,
+            30,
+            opt.batch_size // 2,
+            opt.lr,
             opt.weight_decay,
-            early_stop_ckpt_path,
+            early_stop_stu_path,
             5)
-    
+
+    # evaluate test acc
+    pred_te = predict(model, x_te)
+    if num_class > 2:
+        acc_te = eval_metric(pred_te, y_te)
+    else:
+        acc_te = eval_metric_binary(pred_te, y_te)
+    first_stage_acc = acc_te
+    print("first stage acc:", first_stage_acc)
+
     # training on all set
     va_acc = train(model,
         all_tr_idx,
@@ -187,9 +199,9 @@ def main(**kwargs):
         x_va, y_va, 
         50,
         opt.batch_size,
-        1e-4,
+        opt.lr,
         opt.weight_decay,
-        early_stop_ckpt_path,
+        early_stop_stu_path,
         5)
 
     pred_te = predict(model, x_te)
@@ -197,6 +209,10 @@ def main(**kwargs):
     print("curriculum: {}, acc: {}".format("one-step pacing", acc_te.item()))
     te_acc_list.append(acc_te.item())
     print(te_acc_list)
+
+    res_list = [str(_) for _ in [first_stage_acc.item(), acc_te.item()]]
+    with open(output_result_path, "w") as f:
+        f.write("\n".join(res_list) + "\n")
 
 def compute_tl_score(large_net, x_tr, y_tr,):
     """Receive a large pretrained net, e.g., resnet50, get its penultimate features,

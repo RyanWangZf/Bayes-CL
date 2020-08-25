@@ -109,7 +109,189 @@ class SimpleCNN(nn.Module):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 
+class LeNet(nn.Module):
+    def __init__(self, num_class=None, in_size=32, in_channel=3):
+        super(LeNet, self).__init__()
+        assert num_class != 1 and num_class > 0
+        self.conv1 = nn.Conv2d(in_channel, 6, kernel_size=5, stride=1, padding=0)
+        self.maxpool1 = nn.MaxPool2d((2,2))
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0)
+        self.maxpool2 = nn.MaxPool2d((2,2))
+
+        self.flatten = Flatten()
+
+        map_size1 = (in_size - 5) + 1
+        map_size2 = ((map_size1 // 2) - 5 + 1) // 2
+        
+        self.fc1 = nn.Linear(16*map_size2*map_size2, 120)
+        self.fc2 = nn.Linear(120, 84)
+
+        # Bayesian linear layer
+        if num_class in [None, 2]:
+            # binary
+            self.dense = BayesLinear(84, 1)
+
+        else:
+            # multi-class classification
+            self.dense = BayesLinear(84, num_class)
+
+        # custom initialization of weights
+        self._initialize_weights()
+
+        self.num_class = num_class
+
+    def encoder(self, inputs):
+        x = self.conv1(inputs) # ?, 6, 28, 28
+        x = self.relu(x)
+        x = self.maxpool1(x) # 10, 6, 14, 14
+
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.maxpool2(x) # 10, 16, 5, 5
+
+        x = self.flatten(x)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        return x
+    
+    def forward(self, inputs, hidden=False, sample=False):
+        is_training = self.training
+        x = self.encoder(inputs)
+
+        # if sample == True, this does Bayesian inference
+        out = self.dense(x, sample)
+
+        if self.num_class in [None, 2]:
+            # binary classification
+            out = torch.sigmoid(out)
+        else:
+            # multi-class classification
+            out = torch.softmax(out, dim=1)
+
+        if hidden:
+            return out, x
+        else:
+            return out
+    
+    def forward_logits(self, inputs, hidden=False, sample=False):
+        """Do forward without softmax/sigmoid output activation.
+        """
+        is_training = self.training
+        x = self.encoder(inputs)
+
+        # if sample == True, this does Bayesian inference
+        out = self.dense(x, sample)
+
+        if hidden:
+            return out, x
+        else:
+            return out
+    
+    def bayes_infer(self, inputs, T=10):
+        """Try to do Bayesian inference by Monte Carlo sampling.
+        Return:
+            pred: T times prediction [T, ?, c]
+            epis: epistemic uncertainty of prediction [?, c]
+            alea: aleatoric uncertainty of prediction [?, c]
+        """
+        # the output dense layer must have already been Bayesian
+        assert self.dense.eps_distribution is not None
+        assert T > 0
+
+        batch_size = inputs.shape[0]
+
+        is_training = self.training
+
+        # deterministic mapping
+        x = self.encoder(inputs)
+
+        out = self.dense.bayes_forward(x, T) # T, ?, C
+
+        num_class = out.shape[2]
+
+        # transform to probability distribution
+        # &
+        # compute uncertainty
+        if  num_class == 1:
+            # binary classification scenario
+            out = torch.sigmoid(out)
+
+            # ---------------------
+            # epistemic uncertainty
+            # ---------------------
+            pbar = out.mean(0)
+            temp = out - pbar.unsqueeze(0)
+            temp = temp.unsqueeze(3)
+            epis = torch.einsum("ijkm,ijnm->ijkn", temp, temp).mean(0) # ?, 1, 1 for binary
+            # get diagonal elements of epis
+            epis = torch.einsum("ijj->ij", epis) # ?, 1 (?,c for multi-class)
+
+            # ---------------------
+            # aleatoric uncertainty
+            # ---------------------
+            temp = out.unsqueeze(3) # T, ?, c, 1
+            phat_op = torch.einsum("ijkm,ijnm->ijkn", temp, temp) # T, ?, c, c
+            alea = (out.unsqueeze(2) - phat_op).mean(0).squeeze(2)
+            
+        else:
+            # multi-class
+            out = torch.softmax(out, 2) # T, ?, c
+
+            # ---------------------
+            # epistemic uncertainty
+            # ---------------------
+            pbar = out.mean(0) # ?, c
+            temp = out - pbar.unsqueeze(0) # T, ?, c
+            temp = temp.unsqueeze(3) # T, ?, c, 1
+            epis = torch.einsum("ijkm,ijnm->ijkn", temp, temp).mean(0) # ?, c, c
+
+            # get diagonal elements of epis
+            epis = torch.einsum("ijj->ij", epis) # ?, c for multi-class
+
+            # ---------------------
+            # aleatoric uncertainty
+            # ---------------------
+            temp = out.unsqueeze(3) # T, ?, c, 1
+            phat_op = torch.einsum("ijkm,ijnm->ijkn", temp, temp) # T, ?, c, c
+            
+            temp = torch.repeat_interleave(temp, num_class , 3) # T, ?, c, c
+            eye_mat = torch.eye(num_class).unsqueeze(0).unsqueeze(0).to(self.dense.device) # 1, 1, c, c
+            diag_phat = temp * eye_mat
+            alea = (diag_phat - phat_op).mean(0) # ?, c, c
+            # get diagonal elements of alea
+            alea = torch.einsum("ijj->ij", alea) # ?, c for multi-class
+
+        return out, epis, alea
+
+    def set_bayesian_precision(self, precision_matrix):
+        self.dense.reset_bayesian_precision_matrix(precision_matrix)
+        return
+
+    def _initialize_weights(self):
+        print("initialize model weights.")
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
+            elif isinstance(m, BayesLinear):
+                # specifically for the BBBLinear layer
+                m.W_mu.data.normal_(0, 0.01)
+                m.bias_mu.data.zero_()
+
 class BNN(nn.Module):
+    """Deprecated.
+    """
     def __init__(self, num_class=None, in_size=32, in_channel=3):
         """If num_class is set "None", it will be a binary classification network.
         """
@@ -248,6 +430,7 @@ class BNN(nn.Module):
             temp = out - pbar.unsqueeze(0) # T, ?, c
             temp = temp.unsqueeze(3) # T, ?, c, 1
             epis = torch.einsum("ijkm,ijnm->ijkn", temp, temp).mean(0) # ?, c, c
+
             # get diagonal elements of epis
             epis = torch.einsum("ijj->ij", epis) # ?, c for multi-class
 
@@ -412,3 +595,12 @@ class ResNet(nn.Module):
         x = self.flatten(x)
         x = self.trans_layer(x)
         return x        
+
+
+if __name__ == "__main__":
+    lenet = LeNet(10, 64, 3)
+    x = torch.randn((10,3,64,64))
+    res = lenet(x)
+    pdb.set_trace()
+    pass
+    
